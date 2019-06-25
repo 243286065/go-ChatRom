@@ -57,3 +57,8 @@ consul agent -server -ui -bootstrap-expect=1 -data-dir=/tmp/consul -node=agent-o
 go run service/account/main.go --registry=consul
 ```
 通过`http://127.0.0.1:8500`可以进入web服务查看
+
+
+待开发：
+1. 接入Rabbitmq，实现上下线提醒、文字聊天功能；
+2. 接入ceph。实现文件上传、下载功能。
