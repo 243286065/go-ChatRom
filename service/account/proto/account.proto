@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package go.micro.service.account;
+
+service AccountService {
+    // 用户注册
+    rpc Signup(ReqSignup) returns (RespSignup){}
+    // 用户登录
+    rpc Signin(ReqSignin) returns (RespSignin) {}
+    // 更新token
+    rpc UpdateToken(ReqUpdateToken) returns (RespUpdateToken) {}
+    // 获取token
+    rpc GetToken(ReqGetToken) returns (RespGetToken) {}
+}
+
+message ReqSignup{
+    string username = 1;
+    string password = 2;
+}
+
+message RespSignup{
+    int32 code = 1;
+    string message = 2; 
+}
+
+message ReqSignin{
+    string username = 1;
+    string password = 2;
+}
+
+message RespSignin{
+    int32 code = 1;
+    string token = 2;
+    string message = 3; 
+}
+
+message ReqUpdateToken{
+    string username = 1;
+    string token = 2;
+}
+
+message RespUpdateToken{
+    int32 code = 1;
+}
+
+message ReqGetToken{
+    string username = 1;
+}
+
+message RespGetToken{
+    int32 code = 1;
+    string token = 2;
+}

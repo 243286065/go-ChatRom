@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>主页</title>
+
+    <script src="/static/js/jquery.min.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/hash_map.js"></script>
+    <script src="/static/js/user.js"></script>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" href="chatwindow/css/reset.min.css">
+
+
+    <link rel="stylesheet" href="chatwindow/css/style.css">
+</head>
+
+<body>
+
+    <!-- <h2>WebSocket Test</h2>
+    <input type="text" id="input"></input>
+    <button onclick="sendBtnClick()">send</button>
+    <button onclick="closeBtnClick()">close</button>
+    <div id="output"></div> -->
+
+    <div class="wrapper">
+        <div class="container">
+            <div class="left">
+                <div class="top">
+                    <input type="text" placeholder="Search" />
+                    <a href="javascript:;" class="search"></a>
+                </div>
+                <ul class="people" id="people">
+                </ul>
+            </div>
+            <div class="right">
+                <div class="top"><span>To: <span class="name">Dog Woofson</span></span></div>
+                <div id="chat_list" style="width:100%;height:100%"></div>
+                <div class="write">
+                    <a href="javascript:;" class="write-link attach"></a>
+                    <input type="text" id="input" />
+                    <a href="javascript:;" class="write-link smiley"></a>
+                    <a href="javascript:;" class="write-link send" onclick="sendBtnClick()"></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script src="chatwindow/js/index.js"></script>
+    <script lang="javascript">
+        var websocket;
+        // 用户名和标签映射表
+        var userLableMap = new HashMap();
+
+        function onOpen(evt) {
+            writeToScreen("CONNECTED");
+            // doSend("WebSocket rocks"); 
+        }
+
+        function onClose(evt) {
+            writeToScreen("DISCONNECTED");
+            // 查询是否token过期
+            $.ajax({
+                url: "/user/status",
+                type: "POST",
+                data: {
+                    "username": localStorage.getItem("username"),
+                    "token": localStorage.getItem("token"),
+                },
+                error: function (err) {
+                    alert("服务器异常： " +JSON.stringify(err));
+                    window.location.href = "/user/signin";
+                },
+                success: function (resp) {
+                    if (resp.Code == 10000) {
+                        if (confirm('与服务器的连接已断开，也许你需要刷新一下当前页面/(ㄒoㄒ)/~~')) { location.reload(); }
+                    } else {
+                        if (confirm('与服务器的连接已断开，检测到你在其它地方了！ 如需继续使用，也许你需要重新登录一下！')) { location = '/user/signin'; }
+                    }
+                }
+            });
+        }
+
+        function onMessage(evt) {
+            // 解析消息
+            var spiltLabel = evt.data.indexOf("#");
+            var messageType = evt.data.slice(0, spiltLabel);
+            var messageContent = evt.data.slice(spiltLabel+1);
+            writeToScreen(messageType + "---" + messageContent);
+            if (messageType == "1000" ) {
+                // 更新用户列表
+                var userList = messageContent.split("&");
+                for (index in userList) {
+                    var user = userList[index]
+                    if (!userLableMap.containsValue(user) && localStorage.getItem("username") != user ) {
+                        var index  = userLableMap.size()+1;
+                        var label = "person" + index;
+                        var newuser = new userClass(user, label);
+                        userLableMap.put(user, newuser)
+                        // 添加新元素
+                        writeToScreen(user + "---" + label);
+                        AddNewPeople(user, label);
+
+                        if(index == 1) {
+                            document.querySelector('.chat[data-chat=person1]').classList.add('active-chat');
+                            document.querySelector('.person[data-chat=person1]').classList.add('active');
+                            chat.name.innerHTML = user;
+                        }
+                    }
+                }
+            }
+        }
+
+        function onError(evt) {
+            writeToScreen('<span style="color: red;">ERROR:</span> ' + evt.data);
+        }
+
+        function doSend(message) {
+            writeToScreen("SENT: " + message);
+            websocket.send(message);
+        }
+
+        function AddNewPeople(username, label) {
+            // 用户列表
+            var userList = document.createElement("li");
+            userList.setAttribute("class","person");
+            userList.setAttribute("data-chat",label);
+            var img= document.createElement("img");
+            img.setAttribute("src","chatwindow/img/dog.png");
+            img.setAttribute("alt","");
+            var nameSpan= document.createElement("span");
+            nameSpan.setAttribute("class","name");
+            nameSpan.innerHTML = username;
+            userList.appendChild(img)
+            userList.appendChild(nameSpan)
+            var output = document.getElementById("people");
+            output.appendChild(userList);
+            // alert(output.innerHTML);
+            writeToScreen(output.innerHTML);
+            userList.addEventListener('mousedown', function () {
+                userList.classList.contains('active') || setAciveChat(userList);
+            });
+            userObject = userLableMap.get(username);
+            userObject.setPersonElement(userList);
+
+            // 聊天记录
+            var divChatList = document.createElement("div");
+            divChatList.setAttribute("class","chat");
+            divChatList.setAttribute("data-chat",label);
+            divChatList.setAttribute("id",label);
+            var subDivStart = document.createElement("div");
+            subDivStart.setAttribute("class","conversation-start");
+            var timeSpan = document.createElement("span");
+            timeSpan.append(new Date());
+            subDivStart.appendChild(timeSpan);
+            divChatList.appendChild(subDivStart);
+            var chatoutput = document.getElementById("chat_list");
+            chatoutput.appendChild(divChatList);
+            userObject.setChatElement(divChatList);
+            userLableMap.put(username, userObject)
+        }
+
+        function writeToScreen(message) {
+            // var pre = document.createElement("p");
+            // pre.style.wordWrap = "break-word";
+            // pre.innerHTML = message;
+            // var output = document.getElementById("person6");
+            // output.appendChild(pre);
+            // output.append(message);
+            
+
+            // pre.className = "bubble me";
+            // pre.innerHTML = message;
+            // var output = document.getElementById("person6");
+            // output.appendChild(pre);
+        }
+
+        function sendBtnClick() {
+            var msg = document.getElementById("input").value;
+            alert(msg.length);
+            if (msg.length > 0) {
+                doSend(msg);
+                document.getElementById("input").value = '';
+            }
+        }
+        function closeBtnClick() {
+            websocket.close();
+        }
+
+        window.onload = function () {
+            if (!hasToken()) {
+                return;
+            }
+
+            // 开启websocket
+            var chatserver = localStorage.getItem("chatserver") + "?" + queryParams();
+
+            if (chatserver == null) {
+                return;
+            }
+            websocket = new WebSocket(chatserver);
+            websocket.onopen = function (evt) {
+                onOpen(evt)
+            };
+            websocket.onclose = function (evt) {
+                onClose(evt)
+            };
+            websocket.onmessage = function (evt) {
+                onMessage(evt)
+            };
+            websocket.onerror = function (evt) {
+                onError(evt)
+            };
+        }
+    </script>
+</body>
+
+</html>

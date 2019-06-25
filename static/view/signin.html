@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>登录界面</title>
+
+    <link rel="import" href="common.html"/>
+
+    <script>
+        function register() {
+            //跳转到注册界面register.html进行注册
+            window.open("signup.html");  //_self,_parent,_top,_blank
+        }
+        function login() {
+            //登录逻辑
+            var username = document.getElementById('username');
+            var password = document.getElementById('password');
+
+            if (username.value.length < 5 || username.value.length > 12) {
+                alert("账户长度必须为5~12位");
+            } else if (password.value.length < 8 || password.value.length > 20) {
+                alert("密码长度必须为5~12位");
+            }  else {
+                $.ajax({
+                    url: "/user/signin",
+                    type: "POST",
+                    data: {
+                        "username": username.value,
+                        "password": password.value,
+                    },
+                    error: function (err) {
+                        alert(JSON.stringify(err));
+                    },
+                    success: function (resp) {
+                        if (resp.Code == 10000) {
+                            localStorage.setItem("token", resp.Token);
+                            localStorage.setItem("username", resp.Username);
+                            localStorage.setItem("chatserver", resp.ChatServer);
+                            window.location.href = resp.Location;
+                            // alert(resp.ChatServer)
+                        } else {
+                            alert(resp.Message);
+                        }
+                    }
+                });
+            }
+        }
+    </script>
+</head>
+<body>
+    <!-- 登录表单 -->
+    <form style="margin-left:500px;margin-top:200px;">
+        <div><h1>用户登录</h1></div><br/>
+        <div class="form-group">
+            <label for="user" stype="display:inline;">账户：</label>
+            <input type="text" class="form-control" id="username" style="display:inline;width:200px;"autocomplete="off" />
+        </div>
+        <div class="form-group">
+            <label for="password" style="display:inline;">密码：</label>
+            <input type="text" class="form-control" id="password" style="display:inline;width:200px;"autocomplete="off" />
+        </div>
+        <input type=button class="btn btn-primary" value=登录 onclick="login()">
+        <input type=button class="btn btn-primary" value=注册 onclick="register()">
+    </form>
+</body>
+</html>
