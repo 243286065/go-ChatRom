@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"go-ChatRom/common"
@@ -77,7 +78,7 @@ func GetUserOnlineList() string {
 // 用于向客户端发送数据
 func ClientWriteHandler(conn *websocket.Conn, username string, sessionID string) {
 	// 首先发送在线用户列表
-	conn.WriteMessage(websocket.TextMessage, []byte(protocol.FormatTextMessage(protocol.UpdateOnlineUserListMessage, GetUserOnlineList())))
+	conn.WriteMessage(websocket.TextMessage, []byte(protocol.FormatTextMessage(username, protocol.UpdateOnlineUserListMessage, GetUserOnlineList())))
 	exitFlag := false
 	var stop = make(chan bool)
 	for !exitFlag {
@@ -92,11 +93,13 @@ func ClientWriteHandler(conn *websocket.Conn, username string, sessionID string)
 		}
 
 		// 收取消息队列中的消息
-		mq.StartMessageConsumer(stop, func(msg []byte) {
+		mq.StartMessageConsumer(stop, username, func(msg []byte) {
 			fmt.Println("Recive cht message:" + string(msg))
+			conn.WriteMessage(websocket.TextMessage, msg)
 		},
 			func(msg []byte) {
 				fmt.Println("Recive notify message:" + string(msg))
+				conn.WriteMessage(websocket.TextMessage, msg)
 			})
 
 	}
@@ -108,15 +111,19 @@ func ClientWriteHandler(conn *websocket.Conn, username string, sessionID string)
 func ClientReadHandler(conn *websocket.Conn, username string, sessionID string) {
 	exitFlag := false
 	for !exitFlag {
-		mt, message, err := conn.ReadMessage()
+		_, message, err := conn.ReadMessage()
 		if err != nil {
 			fmt.Println(err.Error())
 			exitFlag = true
 			break
 		}
 
+		fmt.Println("Recv fromct:" + string(message))
 		// 收到消息，解析数据
-		fmt.Println("Recv message: %d---%s", mt, message)
+		keysContent := strings.Split(string(message), "#")
+		sendMsg := protocol.FormatTextMessage(keysContent[0], protocol.ChatMessage, keysContent[2])
+
+		mq.PublishChatMessage(keysContent[1], []byte(sendMsg))
 
 		time.Sleep(1 * time.Second)
 	}
@@ -169,13 +176,13 @@ func ClientConnectHandler(w http.ResponseWriter, r *http.Request) {
 		rconn := redis.RedisPool().Get()
 		defer rconn.Close()
 
-		if CheckSessionExpiration(username, token) {
+		if !CheckSessionExpiration(username, token) {
+			rconn.Do("HDEL", "ONLINE_"+username, "sessionID")
 			message := websocket.FormatCloseMessage(code, "")
 			conn.WriteControl(websocket.CloseMessage, message, time.Now().Add(time.Second))
 			// 利用消息队列广播离线消息
-			mq.PublishNotifyMessage(protocol.FormatTextMessage(protocol.NotifyUserOfflineMessage, ""))
+			mq.PublishNotifyMessage([]byte(protocol.FormatTextMessage(username, protocol.NotifyUserOfflineMessage, "")))
 		} else {
-			rconn.Do("HDEL", "ONLINE_"+username, "sessionID")
 			message := websocket.FormatCloseMessage(code, "你已在其它地方登录，本地已断开连接")
 			conn.WriteControl(websocket.CloseMessage, message, time.Now().Add(time.Second))
 		}
@@ -190,5 +197,5 @@ func ClientConnectHandler(w http.ResponseWriter, r *http.Request) {
 	rconn.Do("HSET", "ONLINE_"+username, "sessionID", token)
 	fmt.Println("------------------------------------")
 	// 利用消息队列广播上线消息
-	mq.PublishNotifyMessage(protocol.FormatTextMessage(protocol.NotifyUserOnlineMessage, ""))
+	mq.PublishNotifyMessage([]byte(protocol.FormatTextMessage(username, protocol.NotifyUserOnlineMessage, "")))
 }

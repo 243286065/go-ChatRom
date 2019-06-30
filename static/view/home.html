@@ -56,14 +56,15 @@
         var websocket;
         // 用户名和标签映射表
         var userLableMap = new HashMap();
+        var peopleNum = 0;
 
         function onOpen(evt) {
-            writeToScreen("CONNECTED");
+            //writeToScreen("CONNECTED");
             // doSend("WebSocket rocks"); 
         }
 
         function onClose(evt) {
-            writeToScreen("DISCONNECTED");
+            //writeToScreen("DISCONNECTED");
             // 查询是否token过期
             $.ajax({
                 url: "/user/status",
@@ -88,22 +89,23 @@
 
         function onMessage(evt) {
             // 解析消息
-            var spiltLabel = evt.data.indexOf("#");
-            var messageType = evt.data.slice(0, spiltLabel);
-            var messageContent = evt.data.slice(spiltLabel+1);
-            writeToScreen(messageType + "---" + messageContent);
-            if (messageType == "1000" ) {
+            var keyConent = evt.data.split("#");
+            messageType = keyConent[0];
+            message = keyConent[2];
+            userNotify = keyConent[1];
+            alert(evt.data);
+            if (messageType == "1001" ) {
                 // 更新用户列表
-                var userList = messageContent.split("&");
+                var userList = message.split("&");
                 for (index in userList) {
                     var user = userList[index]
                     if (!userLableMap.containsValue(user) && localStorage.getItem("username") != user ) {
-                        var index  = userLableMap.size()+1;
+                        var index  = peopleNum+1;
                         var label = "person" + index;
                         var newuser = new userClass(user, label);
                         userLableMap.put(user, newuser)
                         // 添加新元素
-                        writeToScreen(user + "---" + label);
+                        //writeToScreen(user + "---" + label);
                         AddNewPeople(user, label);
 
                         if(index == 1) {
@@ -113,16 +115,42 @@
                         }
                     }
                 }
+            } else if(messageType == "1002") {
+                // 上线通知
+                if(userNotify == localStorage.getItem("username")) {
+                    if (confirm('与服务器的连接已断开，检测到你在其它地方了！ 如需继续使用，也许你需要重新登录一下！')) { location = '/user/signin'; }
+                } else {
+                    if (!userLableMap.containsKey(userNotify)) {
+                        // 新增
+                        var index  = peopleNum+1;
+                        var label = "person" + index;
+                        var newuser = new userClass(userNotify, label);
+                        userLableMap.put(userNotify, newuser)
+                        // 添加新元素
+                        //writeToScreen(userNotify + "---" + label);
+                        AddNewPeople(userNotify, label);
+                    } 
+                }
+            } else if(messageType == "1003") {
+                // 下线通知
+                if (userLableMap.containsKey(userNotify)) {
+                    RemovePeople(userNotify);
+                }
+            } else if(messageType == "1000") {
+                // 聊天消息
+                alert(userNotify +"-----"+ message);
+                var label = userLableMap.get(userNotify).label();
+                writeToScreen(message, label, false);
             }
         }
 
         function onError(evt) {
-            writeToScreen('<span style="color: red;">ERROR:</span> ' + evt.data);
+            //writeToScreen('<span style="color: red;">ERROR:</span> ' + evt.data);
         }
 
-        function doSend(message) {
-            writeToScreen("SENT: " + message);
-            websocket.send(message);
+        function doSend(user,message) {
+            //writeToScreen("SENT: " + message);
+            websocket.send(localStorage.getItem("username") + "#" + user+"#"+message);
         }
 
         function AddNewPeople(username, label) {
@@ -141,7 +169,6 @@
             var output = document.getElementById("people");
             output.appendChild(userList);
             // alert(output.innerHTML);
-            writeToScreen(output.innerHTML);
             userList.addEventListener('mousedown', function () {
                 userList.classList.contains('active') || setAciveChat(userList);
             });
@@ -163,28 +190,50 @@
             chatoutput.appendChild(divChatList);
             userObject.setChatElement(divChatList);
             userLableMap.put(username, userObject)
+            peopleNum++;
+
+            if(userLableMap.size() == 1) {
+                            document.querySelector('.chat[data-chat=person1]').classList.add('active-chat');
+                            document.querySelector('.person[data-chat=person1]').classList.add('active');
+                            chat.name.innerHTML = userNotify;
+            }
         }
 
-        function writeToScreen(message) {
-            // var pre = document.createElement("p");
-            // pre.style.wordWrap = "break-word";
-            // pre.innerHTML = message;
-            // var output = document.getElementById("person6");
-            // output.appendChild(pre);
-            // output.append(message);
-            
+        function RemovePeople(userNotify) {
+            // var obj = userLableMap.get(userNotify);
+            // userLableMap.remove(userNotify);
+            // // 重新更新两个布局
+            // var output = document.getElementById("people");
+            // output.removeChild(obj.personElement())
 
-            // pre.className = "bubble me";
-            // pre.innerHTML = message;
-            // var output = document.getElementById("person6");
-            // output.appendChild(pre);
+            // var chatoutput = document.getElementById("chat_list");
+            // chatoutput.removeChild(obj.chatElement());
+        }
+
+        function writeToScreen(message, label, self) {
+            var pre = document.createElement("p");
+            if(!self){
+                pre.style.wordWrap = "break-word";
+                pre.innerHTML = message;
+                var output = document.getElementById(label);
+                output.appendChild(pre);
+                //output.append(message);
+            } else {
+                pre.className = "bubble me";
+                pre.innerHTML = message;
+                var output = document.getElementById(label);
+                output.appendChild(pre);
+            }
         }
 
         function sendBtnClick() {
             var msg = document.getElementById("input").value;
-            alert(msg.length);
+
             if (msg.length > 0) {
-                doSend(msg);
+                doSend(chat.name.innerHTML, msg);
+
+                var userSlect = userLableMap.get(chat.name.innerHTML);
+                writeToScreen(msg, userSlect.label(), true)
                 document.getElementById("input").value = '';
             }
         }

@@ -5,5 +5,6 @@ const (
 	ChatExchangeName   = "exchange.chat"
 	NotifyExchangeName = "exchange.notify"
 	QueneNameChat      = "queue.chat"
+	QueneNameNotify    = "queue.chat"
 	RoutingkeyChat     = "key.chat"
 )
